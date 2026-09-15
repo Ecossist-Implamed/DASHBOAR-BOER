@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implamed — Painel Consolidado</title>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/papaparse.min.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6; /* blue */
+    --series-2: #eb6834; /* orange */
+    --series-3: #1baf7a; /* aqua */
+    --series-4: #eda100; /* yellow */
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --card-shadow: 0 1px 2px rgba(11,11,11,0.06), 0 1px 12px rgba(11,11,11,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --good: #0ca30c;
+      --warning: #fab219;
+      --serious: #ec835a;
+      --critical: #e66767;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+  }
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header.topbar h1 { font-size: 18px; margin: 0; }
+  header.topbar .sub { color: var(--text-secondary); font-size: 13px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--card-shadow);
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 15px; }
+  .card h3 { margin: 18px 0 10px; font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+  .import-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .import-item {
+    border: 1px dashed var(--baseline);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  .import-item .name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
+  .import-item .status { margin-top: 4px; }
+  .status-ok { color: var(--good); }
+  .status-pending { color: var(--text-muted); }
+  .status-error { color: var(--critical); }
+  .btn {
+    display: inline-block;
+    background: var(--series-1);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn:hover { opacity: 0.92; }
+  .btn.secondary { background: transparent; color: var(--series-1); border: 1px solid var(--series-1); }
+  input[type=file] { display: none; }
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  nav.tabs button {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  nav.tabs button.active {
+    color: var(--series-1);
+    border-bottom-color: var(--series-1);
+    font-weight: 600;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .sub-tab-panel { display: none; }
+  .sub-tab-panel.active { display: block; }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .kpi-tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi-tile .label { font-size: 12px; color: var(--text-secondary); }
+  .kpi-tile .value { font-size: 22px; font-weight: 700; margin-top: 4px; overflow-wrap: anywhere; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  tbody tr:hover { background: rgba(42,120,214,0.06); }
+  .table-scroll { max-height: 420px; overflow: auto; border: 1px solid var(--grid); border-radius: 8px; }
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  select, input[type=range] { font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--baseline); background: var(--surface-1); color: var(--text-primary); }
+  .chart-wrap { position: relative; height: 320px; margin-bottom: 10px; }
+  .lock-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+  }
+  .lock-overlay .icon { font-size: 40px; margin-bottom: 10px; }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface-1); border-radius: 12px; padding: 24px;
+    width: 320px; box-shadow: var(--card-shadow);
+  }
+  .modal h3 { margin-top: 0; }
+  .modal input[type=password] {
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--baseline);
+    background: var(--page); color: var(--text-primary); font-size: 14px; margin: 10px 0;
+  }
+  .modal .error { color: var(--critical); font-size: 12.5px; min-height: 16px; }
+  .legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 6px; }
+  .legend span.dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .badge.locked { background: rgba(208,59,59,0.12); color: var(--critical); }
+  .badge.unlocked { background: rgba(12,163,12,0.12); color: var(--good); }
+  .muted { color: var(--text-muted); font-size: 12.5px; }
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; padding: 24px 0; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div>
+    <h1>Implamed — Painel Consolidado</h1>
+    <div class="sub">Vendas · Estoque · Metas · Promoções · Pedidos/Margem</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span id="lockBadge" class="badge locked">🔒 Custos bloqueados</span>
+    <button class="btn secondary" id="lockToggleBtn">Desbloquear custos</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Importar planilhas</h2>
+    <p class="muted">Selecione os arquivos atualizados (pode escolher os 5 de uma vez — o app identifica automaticamente qual é qual). Nada é enviado para nenhum servidor: tudo é lido aqui mesmo no seu navegador.</p>
+    <label class="btn" for="fileInput">Escolher planilhas…</label>
+    <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.csv">
+    <div class="import-grid" id="importStatusGrid"></div>
+    <div id="importErrors" class="muted" style="color:var(--critical); margin-top:8px;"></div>
+  </div>
+
+  <nav class="tabs" id="tabNav">
+    <button data-tab="geral" class="active">Visão geral</button>
+    <button data-tab="vendas">Vendas</button>
+    <button data-tab="estoque">Estoque 🔒</button>
+    <button data-tab="metas">Metas</button>
+    <button data-tab="promocoes">Promoções</button>
+    <button data-tab="pedidos">Pedidos / Margem</button>
+  </nav>
+
+  <section id="tab-geral" class="tab-panel active">
+    <div class="kpi-row" id="geralKpis"></div>
+    <div class="card">
+      <h2>Situação da importação</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Base</th><th>Arquivo</th><th>Linhas</th><th>Importado em</th></tr></thead>
+          <tbody id="geralImportTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-vendas" class="tab-panel">
+    <div id="vendasEmpty" class="lock-overlay"><div class="icon">📊</div>Importe a planilha de Vendas (aba "BASE NOVA") para ver este painel.</div>
+    <div id="vendasContent" style="display:none;">
+      <div class="kpi-row" id="vendasKpis"></div>
+      <div class="filters">
+        <select id="vendasFabricanteFilter"><option value="">Todos os fabricantes</option></select>
+        <select id="vendasUfFilter"><option value="">Todas as UFs</option></select>
+      </div>
+      <div class="card">
+        <h3>Top 10 fabricantes por faturamento</h3>
+        <div class="chart-wrap"><canvas id="chartVendasFabricante"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Faturamento por mês</h3>
+        <div class="chart-wrap"><canvas id="chartVendasMes"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Detalhe (últimas 500 linhas do filtro)</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Data</th><th>Fabricante</th><th>Cliente</th><th>UF</th><th>Produto</th><th>Qtd</th><th>Valor</th></tr></thead>
+            <tbody id="vendasTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-estoque" class="tab-panel">
+    <div id="estoqueEmpty" class="lock-overlay"><div class="icon">📦</div>Importe a planilha de Estoque para ver este painel.</div>
+    <div id="estoqueLocked" class="lock-overlay" style="display:none;"><div class="icon">🔒</div>Esta aba mostra custos e está protegida.<br><button class="btn" style="margin-top:12px;" onclick="openLockModal()">Digitar senha</button></div>
+    <div id="estoqueContent" style="display:none;">
+      <div class="kpi-row" id="estoqueKpis"></div>
+      <div class="filters">
+        <select id="estoqueTopicoFilter"><option value="">Todos os tópicos</option></select>
+        <select id="estoqueFabricanteFilter"><option value="">Todos os fabricantes</option></select>
+      </div>
+      <div class="card">
+        <h3>Top 10 fabricantes por valor em estoque (custo)</h3>
+        <div class="chart-wrap"><canvas id="chartEstoqueFabricante"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Detalhe</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Código</th><th>Descrição</th><th>Fabricante</th><th>Tópico</th><th>Qtd</th><th>Custo unit (US$)</th><th>Total (US$)</th></tr></thead>
+            <tbody id="estoqueTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-metas" class="tab-panel">
+    <div id="metasEmpty" class="lock-overlay"><div class="icon">🎯</div>Importe a planilha de Metas para ver este painel.</div>
+    <div id="metasContent" style="display:none;">
+      <div class="kpi-row" id="metasKpis"></div>
+      <div class="filters">
+        <select id="metasRegiaoFilter"><option value="">Todas as regiões</option></select>
+      </div>
+      <div class="card">
+        <h3>Meta 2025 x Meta 2026 por fabricante (top 10)</h3>
+        <div class="legend"><span><span class="dot" style="background:var(--series-1)"></span>Meta 2025</span><span><span class="dot" style="background:var(--series-2)"></span>Meta 2026</span></div>
+        <div class="chart-wrap"><canvas id="chartMetas"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Detalhe por cliente</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Cliente</th><th>Fabricante</th><th>Especialidade</th><th>Região</th><th>Meta 2025</th><th>Meta 2026</th></tr></thead>
+            <tbody id="metasTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-promocoes" class="tab-panel">
+    <div id="promocoesEmpty" class="lock-overlay"><div class="icon">🏷️</div>Importe a planilha de Promoções para ver este painel.</div>
+    <div id="promocoesContent" style="display:none;">
+      <div class="filters">
+        <select id="promocoesFabricanteFilter"></select>
+      </div>
+      <div class="card">
+        <h3 id="promocoesTitulo">Regras de desconto</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Família</th><th>Regra</th><th>Valor</th><th>Moeda</th></tr></thead>
+            <tbody id="promocoesTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-pedidos" class="tab-panel">
+    <div id="pedidosEmpty" class="lock-overlay"><div class="icon">🧾</div>Importe a planilha/CSV de Pedidos para ver este painel.</div>
+    <div id="pedidosContent" style="display:none;">
+      <nav class="tabs" id="pedidosSubNav">
+        <button data-subtab="realizadas" class="active">Vendas Realizadas x Custo 🔒</button>
+        <button data-subtab="aberto">Pedidos em Aberto</button>
+        <button data-subtab="outras">Outras Operações</button>
+      </nav>
+
+      <div id="pedidos-realizadas" class="sub-tab-panel active">
+        <div id="realizadasLocked" class="lock-overlay"><div class="icon">🔒</div>Esta visão mostra custo e margem, e está protegida.<br><button class="btn" style="margin-top:12px;" onclick="openLockModal()">Digitar senha</button></div>
+        <div id="realizadasContent" style="display:none;">
+          <div class="filters">
+            <label class="muted">Câmbio USD → BRL: <span id="cambioLabel">4,95</span></label>
+            <input type="range" id="cambioSlider" min="4.95" max="5.25" step="0.05" value="4.95">
+          </div>
+          <div class="kpi-row" id="realizadasKpis"></div>
+          <div class="card">
+            <h3>Venda x Custo por fabricante (top 15)</h3>
+            <div class="legend"><span><span class="dot" style="background:var(--series-1)"></span>Venda (BRL)</span><span><span class="dot" style="background:var(--series-2)"></span>Custo estimado (BRL)</span></div>
+            <div class="chart-wrap"><canvas id="chartRealizadas"></canvas></div>
+          </div>
+          <div class="card">
+            <h3>Detalhe</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>PV</th><th>Faturamento</th><th>Cliente</th><th>UF</th><th>Fabricante</th><th>Código</th><th>Qtd</th><th>Valor (BRL)</th><th>Custo (BRL)</th><th>Margem</th><th>Margem %</th></tr></thead>
+                <tbody id="realizadasTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="pedidos-aberto" class="sub-tab-panel">
+        <div class="kpi-row" id="abertoKpis"></div>
+        <div class="card">
+          <h3>Pedidos em aberto por status</h3>
+          <div class="chart-wrap"><canvas id="chartAberto"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Detalhe</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>PV</th><th>Confirmação</th><th>Status</th><th>Cliente</th><th>UF</th><th>Fabricante</th><th>Código</th><th>Qtd</th><th>Valor (BRL)</th></tr></thead>
+              <tbody id="abertoTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="pedidos-outras" class="sub-tab-panel">
+        <div class="card">
+          <h3>Valor por tipo de operação</h3>
+          <div class="chart-wrap"><canvas id="chartOutras"></canvas></div>
+        </div>
+        <div class="filters">
+          <select id="outrasTipoFilter"><option value="">Todos os tipos</option></select>
+        </div>
+        <div class="card">
+          <h3>Detalhe</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>PV</th><th>Confirmação</th><th>Status</th><th>Tipo</th><th>Cliente</th><th>UF</th><th>Fabricante</th><th>Código</th><th>Qtd</th><th>Valor (BRL)</th></tr></thead>
+              <tbody id="outrasTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Implamed · painel local, sem servidor · dados ficam só neste navegador</footer>
+</main>
+
+<div class="modal-backdrop" id="lockModal">
+  <div class="modal">
+    <h3>Desbloquear custos</h3>
+    <p class="muted">Digite a senha para ver custos e margens (Estoque e Pedidos/Margem).</p>
+    <input type="password" id="lockPasswordInput" placeholder="Senha">
+    <div class="error" id="lockError"></div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn secondary" onclick="closeLockModal()">Cancelar</button>
+      <button class="btn" onclick="tryUnlock()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================= CONFIG ======================= */
+// Hash SHA-256 da senha que libera custos/margem. Senha padrão: "trocar123"
+// Para trocar: peça para o Claude gerar um novo hash e substitua a linha abaixo.
+const UNLOCK_PASSWORD_HASH = "b0857a7c7d3178e44ca0d8836786ae18ee806f7625e589b98c5bad307813eaf6";
+
+/* ======================= STATE ======================= */
+const DATA = { vendas: [], estoque: [], metas: [], promocoes: [], pedidos: [] };
+const META_INFO = { vendas: null, estoque: null, metas: null, promocoes: null, pedidos: null };
+let unlocked = false;
+let cambio = 4.95;
+const charts = {};
+
+/* ======================= HELPERS ======================= */
+function clean(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+function numOrNull(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+function parseBRNumber(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return v;
+  let s = String(v).trim();
+  if (s === '') return null;
+  s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function parseBRDate(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return null;
+  let d = parseInt(m[1], 10), mo = parseInt(m[2], 10), y = parseInt(m[3], 10);
+  if (y < 100) y += (y <= 68 ? 2000 : 1900);
+  const dt = new Date(y, mo - 1, d);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+function fmtBRL(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
+function fmtUSD(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return d.toLocaleDateString('pt-BR');
+}
+async function sha256Hex(text) {
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function css(varName) {
+  return getComputedStyle(document.body).getPropertyValue(varName).trim();
+}
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+function topN(map, n) {
+  return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+function fillSelect(select, values, placeholder) {
+  const current = select.value;
+  select.innerHTML = `<option value="">${placeholder}</option>` +
+    values.map(v => `<option value="${v}">${v}</option>`).join('');
+  if (values.includes(current)) select.value = current;
+}
+
+/* ======================= FILE HANDLING ======================= */
+document.getElementById('fileInput').addEventListener('change', (e) => handleFiles(e.target.files));
+
+// drag and drop onto the import card
+const importCard = document.querySelector('.card');
+['dragover', 'drop'].forEach(evt => importCard.addEventListener(evt, e => e.preventDefault()));
+importCard.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+async function handleFiles(fileList) {
+  const errorsBox = document.getElementById('importErrors');
+  const grid = document.getElementById('importStatusGrid');
+  errorsBox.textContent = '';
+  grid.innerHTML = '<div class="import-item"><span class="status-pending">⏳ Processando arquivos, aguarde...</span></div>';
+  for (const file of Array.from(fileList)) {
+    try {
+      await handleOneFile(file);
+    } catch (err) {
+      errorsBox.textContent += `Erro ao importar "${file.name}": ${err.message}  `;
+    }
+  }
+  refreshImportStatus();
+  renderAll();
+}
+
+async function handleOneFile(file) {
+  const name = file.name.toLowerCase();
+  const buf = await file.arrayBuffer();
+  if (name.endsWith('.csv')) {
+    const text = new TextDecoder('iso-8859-1').decode(buf);
+    const parsed = Papa.parse(text, { delimiter: ';', skipEmptyLines: true });
+    classifyCsv(parsed.data, file.name);
+  } else {
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    classifyWorkbook(wb, file.name);
+  }
+}
+
+function classifyWorkbook(wb, filename) {
+  const sheets = wb.SheetNames;
+  if (sheets.includes('BASE NOVA')) {
+    DATA.vendas = parseVendasSheet(wb.Sheets['BASE NOVA']);
+    setMetaInfo('vendas', filename, DATA.vendas.length);
+  } else if (sheets.includes('ESTOQUE')) {
+    DATA.estoque = parseEstoqueSheet(wb.Sheets['ESTOQUE']);
+    setMetaInfo('estoque', filename, DATA.estoque.length);
+  } else if (sheets.includes('PAINEL')) {
+    DATA.metas = parseMetasSheet(wb.Sheets['PAINEL']);
+    setMetaInfo('metas', filename, DATA.metas.length);
+  } else {
+    let all = [];
+    sheets.forEach(s => { all = all.concat(parsePromocaoSheet(s, wb.Sheets[s])); });
+    DATA.promocoes = all;
+    setMetaInfo('promocoes', filename, DATA.promocoes.length);
+  }
+}
+
+function classifyCsv(rows, filename) {
+  if (!rows.length) throw new Error('arquivo vazio');
+  const header = rows[0].map(h => clean(h));
+  if (header[20] !== 'Produto' || header[36] !== 'Valor total') {
+    throw new Error('layout do CSV de Pedidos não reconhecido');
+  }
+  DATA.pedidos = parsePedidosRows(rows);
+  setMetaInfo('pedidos', filename, DATA.pedidos.length);
+}
+
+function setMetaInfo(key, filename, rows) {
+  META_INFO[key] = { filename, rows, importedAt: new Date() };
+}
+
+/* ======================= PARSERS ======================= */
+function sheetToRows(sheet) {
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+}
+
+function parseVendasSheet(sheet) {
+  const rows = sheetToRows(sheet);
+  const header = rows[0].map(h => clean(h));
+  const idx = {
+    fabricante: header.indexOf('Fabricante'),
+    uf: header.indexOf('Cliente_UF'),
+    cidade: header.indexOf('Cliente_Cidade'),
+    cliente: header.indexOf('Cliente'),
+    familia: header.indexOf('FAMILIA'),
+    codigo: header.indexOf('Codigo'),
+    produto: header.indexOf('Produto'),
+    qtd: header.indexOf('Qtdade'),
+    prUnit: header.indexOf('Pr.Unit'),
+    liq: header.indexOf('Liq'),
+    data: header.indexOf('Data Nota'),
+    espec: header.indexOf('ESPEC'),
+  };
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r[idx.codigo] == null || clean(r[idx.codigo]) === '') continue;
+    let data = r[idx.data];
+    if (data && !(data instanceof Date)) data = parseBRDate(data);
+    out.push({
+      fabricante: clean(r[idx.fabricante]),
+      uf: clean(r[idx.uf]),
+      cidade: clean(r[idx.cidade]),
+      cliente: clean(r[idx.cliente]),
+      familia: clean(r[idx.familia]),
+      codigo: clean(r[idx.codigo]),
+      produto: clean(r[idx.produto]),
+      qtd: numOrNull(r[idx.qtd]) || 0,
+      prUnit: numOrNull(r[idx.prUnit]) || 0,
+      liq: numOrNull(r[idx.liq]) || 0,
+      data: data || null,
+      espec: clean(r[idx.espec]),
+    });
+  }
+  return out;
+}
+
+function parseEstoqueSheet(sheet) {
+  const rows = sheetToRows(sheet);
+  const header = rows[0].map(h => clean(h));
+  const idx = {
+    fabricante: header.indexOf('Fabricante'),
+    familia: header.indexOf('Familia'),
+    codigo: header.indexOf('Codigodoproduto'),
+    descricao: header.indexOf('Descricao do produto'),
+    qt: header.indexOf('Qt.total'),
+    custo: header.indexOf('Custo'),
+    total: header.indexOf('Total'),
+    vendas6: header.indexOf('Vendas 6'),
+    vendas12: header.indexOf('Vendas 12'),
+    topico: header.indexOf('Topico'),
+  };
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r[idx.codigo] == null || clean(r[idx.codigo]) === '') continue;
+    const custo = numOrNull(r[idx.custo]);
+    if (custo === null) continue; // pula bloco de resumo no rodapé da planilha
+    out.push({
+      fabricante: clean(r[idx.fabricante]),
+      familia: clean(r[idx.familia]),
+      codigo: clean(r[idx.codigo]),
+      descricao: clean(r[idx.descricao]),
+      qtdTotal: numOrNull(r[idx.qt]) || 0,
+      custoUsd: custo,
+      totalUsd: numOrNull(r[idx.total]) || 0,
+      vendas6: numOrNull(r[idx.vendas6]),
+      vendas12: numOrNull(r[idx.vendas12]),
+      topico: clean(r[idx.topico]) || 'N/D',
+    });
+  }
+  return out;
+}
+
+function parseMetasSheet(sheet) {
+  const rows = sheetToRows(sheet);
+  const header = rows[0].map(h => clean(h));
+  const idx = {
+    cliente: header.indexOf('CLIENTE'),
+    fabrica: header.indexOf('FÁBRICA'),
+    espec: header.indexOf('Especializade'),
+    regiao: header.indexOf('REGIÃO'),
+    m2025: header.indexOf('META 2025'),
+    m2026: header.indexOf('META 2026'),
+  };
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r[idx.cliente] == null || clean(r[idx.cliente]) === '') continue;
+    out.push({
+      cliente: clean(r[idx.cliente]),
+      fabricante: clean(r[idx.fabrica]),
+      especialidade: clean(r[idx.espec]),
+      regiao: clean(r[idx.regiao]) || 'N/D',
+      meta2025: numOrNull(r[idx.m2025]) || 0,
+      meta2026: numOrNull(r[idx.m2026]) || 0,
+    });
+  }
+  return out;
+}
+
+function parsePromocaoSheet(fabricanteNome, sheet) {
+  const rows = sheetToRows(sheet);
+  if (!rows.length) return [];
+  const header = rows[0].map(h => clean(h));
+  const valorHeader = header[2] || '';
+  const moeda = /d[oó]lar|us\$/i.test(valorHeader) ? 'USD' : 'BRL';
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    const fam = clean(r[0]);
+    if (fam && /^(FAMILIA|FABRICANTE)$/i.test(fam)) break;
+    const tipo = clean(r[1]);
+    const valor = numOrNull(r[2]);
+    if (!tipo || valor === null) continue;
+    if (/^total$/i.test(fam)) continue;
+    out.push({ fabricante: fabricanteNome, familia: fam, tipo, valor, moeda });
+  }
+  return out;
+}
+
+function parsePedidosRows(rows) {
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.length < 37) continue;
+    const codigoRaw = clean(r[20]);
+    if (!codigoRaw) continue;
+    const codigo = codigoRaw.replace(/^'/, '').trim();
+    const tipoOpRaw = clean(r[18]);
+    const dashIdx = tipoOpRaw.indexOf('-');
+    const tipoOpCodigo = dashIdx >= 0 ? tipoOpRaw.slice(0, dashIdx).trim() : tipoOpRaw;
+    const tipoOp = dashIdx >= 0 ? tipoOpRaw.slice(dashIdx + 1).trim() : '';
+    out.push({
+      pv: clean(r[0]),
+      codigo,
+      descricao: clean(r[21]),
+      cliente: clean(r[2]),
+      uf: clean(r[5]),
+      fabricante: clean(r[23]),
+      qtd: parseBRNumber(r[27]) || 0,
+      valorBrl: parseBRNumber(r[36]) || 0,
+      status: clean(r[17]),
+      tipoOpCodigo,
+      tipoOp,
+      confirmacao: parseBRDate(r[12]),
+      faturamento: parseBRDate(r[14]),
+    });
+  }
+  return out;
+}
+
+/* ======================= IMPORT STATUS UI ======================= */
+const LABELS = {
+  vendas: 'Vendas (BASE NOVA)',
+  estoque: 'Estoque',
+  metas: 'Metas',
+  promocoes: 'Promoções',
+  pedidos: 'Pedidos',
+};
+function refreshImportStatus() {
+  const grid = document.getElementById('importStatusGrid');
+  grid.innerHTML = Object.keys(LABELS).map(key => {
+    const info = META_INFO[key];
+    const status = info
+      ? `<span class="status-ok">✅ ${fmtNum(info.rows)} linhas — ${info.importedAt.toLocaleTimeString('pt-BR')}</span>`
+      : `<span class="status-pending">⏳ aguardando</span>`;
+    return `<div class="import-item"><div class="name">${LABELS[key]}</div><div class="status">${status}</div>${info ? `<div class="muted">${info.filename}</div>` : ''}</div>`;
+  }).join('');
+
+  const tbody = document.getElementById('geralImportTable');
+  tbody.innerHTML = Object.keys(LABELS).map(key => {
+    const info = META_INFO[key];
+    return `<tr><td>${LABELS[key]}</td><td>${info ? info.filename : '—'}</td><td>${info ? fmtNum(info.rows) : '—'}</td><td>${info ? info.importedAt.toLocaleString('pt-BR') : '—'}</td></tr>`;
+  }).join('');
+}
+
+/* ======================= LOCK / UNLOCK ======================= */
+function openLockModal() {
+  document.getElementById('lockModal').classList.add('open');
+  document.getElementById('lockPasswordInput').value = '';
+  document.getElementById('lockError').textContent = '';
+  document.getElementById('lockPasswordInput').focus();
+}
+function closeLockModal() {
+  document.getElementById('lockModal').classList.remove('open');
+}
+async function tryUnlock() {
+  const pwd = document.getElementById('lockPasswordInput').value;
+  const hash = await sha256Hex(pwd);
+  if (hash === UNLOCK_PASSWORD_HASH) {
+    unlocked = true;
+    closeLockModal();
+    updateLockUI();
+    renderAll();
+  } else {
+    document.getElementById('lockError').textContent = 'Senha incorreta.';
+  }
+}
+function updateLockUI() {
+  const badge = document.getElementById('lockBadge');
+  const btn = document.getElementById('lockToggleBtn');
+  if (unlocked) {
+    badge.textContent = '🔓 Custos desbloqueados';
+    badge.className = 'badge unlocked';
+    btn.textContent = 'Bloquear custos';
+  } else {
+    badge.textContent = '🔒 Custos bloqueados';
+    badge.className = 'badge locked';
+    btn.textContent = 'Desbloquear custos';
+  }
+}
+document.getElementById('lockToggleBtn').addEventListener('click', () => {
+  if (unlocked) { unlocked = false; updateLockUI(); renderAll(); }
+  else { openLockModal(); }
+});
+document.getElementById('lockPasswordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+
+/* ======================= TABS ======================= */
+document.getElementById('tabNav').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-tab]');
+  if (!btn) return;
+  document.querySelectorAll('#tabNav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+});
+document.getElementById('pedidosSubNav').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-subtab]');
+  if (!btn) return;
+  document.querySelectorAll('#pedidosSubNav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['realizadas', 'aberto', 'outras'].forEach(k => {
+    document.getElementById('pedidos-' + k).classList.toggle('active', k === btn.dataset.subtab);
+  });
+});
+document.getElementById('cambioSlider').addEventListener('input', (e) => {
+  cambio = parseFloat(e.target.value);
+  document.getElementById('cambioLabel').textContent = cambio.toFixed(2).replace('.', ',');
+  renderPedidos();
+});
+
+/* ======================= RENDER ======================= */
+function renderAll() {
+  updateLockUI();
+  renderGeral();
+  renderVendas();
+  renderEstoque();
+  renderMetas();
+  renderPromocoes();
+  renderPedidos();
+}
+
+function renderGeral() {
+  const kpis = [];
+  kpis.push({ label: 'Faturamento total (Vendas)', value: DATA.vendas.length ? fmtBRL(DATA.vendas.reduce((s, r) => s + r.liq, 0)) : '—' });
+  kpis.push({ label: 'Itens em estoque', value: DATA.estoque.length ? fmtNum(DATA.estoque.reduce((s, r) => s + r.qtdTotal, 0)) : '—' });
+  kpis.push({ label: 'Meta total 2026', value: DATA.metas.length ? fmtBRL(DATA.metas.reduce((s, r) => s + r.meta2026, 0)) : '—' });
+  kpis.push({ label: 'Pedidos importados', value: DATA.pedidos.length ? fmtNum(DATA.pedidos.length) : '—' });
+  document.getElementById('geralKpis').innerHTML = kpis.map(k => kpiHtml(k.label, k.value)).join('');
+}
+
+function kpiHtml(label, value) {
+  return `<div class="kpi-tile"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+}
+
+function renderVendas() {
+  const has = DATA.vendas.length > 0;
+  document.getElementById('vendasEmpty').style.display = has ? 'none' : 'flex';
+  document.getElementById('vendasContent').style.display = has ? 'block' : 'none';
+  if (!has) return;
+
+  const fabSel = document.getElementById('vendasFabricanteFilter');
+  const ufSel = document.getElementById('vendasUfFilter');
+  fillSelect(fabSel, [...new Set(DATA.vendas.map(r => r.fabricante))].filter(Boolean).sort(), 'Todos os fabricantes');
+  fillSelect(ufSel, [...new Set(DATA.vendas.map(r => r.uf))].filter(Boolean).sort(), 'Todas as UFs');
+  fabSel.onchange = renderVendas;
+  ufSel.onchange = renderVendas;
+
+  let rows = DATA.vendas;
+  if (fabSel.value) rows = rows.filter(r => r.fabricante === fabSel.value);
+  if (ufSel.value) rows = rows.filter(r => r.uf === ufSel.value);
+
+  const total = rows.reduce((s, r) => s + r.liq, 0);
+  const qtd = rows.reduce((s, r) => s + r.qtd, 0);
+  const ticket = rows.length ? total / rows.length : 0;
+  document.getElementById('vendasKpis').innerHTML = [
+    kpiHtml('Faturamento', fmtBRL(total)),
+    kpiHtml('Quantidade vendida', fmtNum(qtd)),
+    kpiHtml('Transações', fmtNum(rows.length)),
+    kpiHtml('Ticket médio', fmtBRL(ticket)),
+  ].join('');
+
+  const byFab = new Map();
+  rows.forEach(r => byFab.set(r.fabricante, (byFab.get(r.fabricante) || 0) + r.liq));
+  const topFab = topN(byFab, 10);
+  destroyChart('chartVendasFabricante');
+  charts.chartVendasFabricante = new Chart(document.getElementById('chartVendasFabricante'), {
+    type: 'bar',
+    data: { labels: topFab.map(x => x[0]), datasets: [{ data: topFab.map(x => x[1]), backgroundColor: css('--series-1'), borderRadius: 4 }] },
+    options: baseBarOptions(v => fmtBRL(v))
+  });
+
+  const byMonth = new Map();
+  rows.forEach(r => {
+    if (!r.data) return;
+    const key = `${r.data.getFullYear()}-${String(r.data.getMonth() + 1).padStart(2, '0')}`;
+    byMonth.set(key, (byMonth.get(key) || 0) + r.liq);
+  });
+  const monthKeys = Array.from(byMonth.keys()).sort();
+  destroyChart('chartVendasMes');
+  charts.chartVendasMes = new Chart(document.getElementById('chartVendasMes'), {
+    type: 'line',
+    data: { labels: monthKeys, datasets: [{ data: monthKeys.map(k => byMonth.get(k)), borderColor: css('--series-1'), backgroundColor: css('--series-1'), tension: 0.25, pointRadius: 2 }] },
+    options: baseBarOptions(v => fmtBRL(v))
+  });
+
+  const tbody = document.getElementById('vendasTable');
+  const sample = rows.slice().sort((a, b) => (b.data || 0) - (a.data || 0)).slice(0, 500);
+  tbody.innerHTML = sample.map(r => `<tr><td>${fmtDate(r.data)}</td><td>${r.fabricante}</td><td>${r.cliente}</td><td>${r.uf}</td><td>${r.produto}</td><td>${fmtNum(r.qtd)}</td><td>${fmtBRL(r.liq)}</td></tr>`).join('');
+}
+
+function renderEstoque() {
+  const has = DATA.estoque.length > 0;
+  document.getElementById('estoqueEmpty').style.display = has ? 'none' : 'flex';
+  document.getElementById('estoqueLocked').style.display = (has && !unlocked) ? 'flex' : 'none';
+  document.getElementById('estoqueContent').style.display = (has && unlocked) ? 'block' : 'none';
+  if (!has || !unlocked) return;
+
+  const topicoSel = document.getElementById('estoqueTopicoFilter');
+  const fabSel = document.getElementById('estoqueFabricanteFilter');
+  fillSelect(topicoSel, [...new Set(DATA.estoque.map(r => r.topico))].filter(Boolean).sort(), 'Todos os tópicos');
+  fillSelect(fabSel, [...new Set(DATA.estoque.map(r => r.fabricante))].filter(Boolean).sort(), 'Todos os fabricantes');
+  topicoSel.onchange = renderEstoque;
+  fabSel.onchange = renderEstoque;
+
+  let rows = DATA.estoque;
+  if (topicoSel.value) rows = rows.filter(r => r.topico === topicoSel.value);
+  if (fabSel.value) rows = rows.filter(r => r.fabricante === fabSel.value);
+
+  const totalUsd = rows.reduce((s, r) => s + r.totalUsd, 0);
+  const totalQtd = rows.reduce((s, r) => s + r.qtdTotal, 0);
+  const zerados = rows.filter(r => r.qtdTotal === 0).length;
+  document.getElementById('estoqueKpis').innerHTML = [
+    kpiHtml('Valor em estoque (US$)', fmtUSD(totalUsd)),
+    kpiHtml('Valor em estoque (BRL est.)', fmtBRL(totalUsd * cambio)),
+    kpiHtml('Itens (unidades)', fmtNum(totalQtd)),
+    kpiHtml('Itens com estoque zerado', fmtNum(zerados)),
+  ].join('');
+
+  const byFab = new Map();
+  rows.forEach(r => byFab.set(r.fabricante, (byFab.get(r.fabricante) || 0) + r.totalUsd));
+  const topFab = topN(byFab, 10);
+  destroyChart('chartEstoqueFabricante');
+  charts.chartEstoqueFabricante = new Chart(document.getElementById('chartEstoqueFabricante'), {
+    type: 'bar',
+    data: { labels: topFab.map(x => x[0]), datasets: [{ data: topFab.map(x => x[1]), backgroundColor: css('--series-1'), borderRadius: 4 }] },
+    options: baseBarOptions(v => fmtUSD(v))
+  });
+
+  const tbody = document.getElementById('estoqueTable');
+  const sample = rows.slice().sort((a, b) => b.totalUsd - a.totalUsd).slice(0, 500);
+  tbody.innerHTML = sample.map(r => `<tr><td>${r.codigo}</td><td>${r.descricao}</td><td>${r.fabricante}</td><td>${r.topico}</td><td>${fmtNum(r.qtdTotal)}</td><td>${fmtUSD(r.custoUsd)}</td><td>${fmtUSD(r.totalUsd)}</td></tr>`).join('');
+}
+
+function renderMetas() {
+  const has = DATA.metas.length > 0;
+  document.getElementById('metasEmpty').style.display = has ? 'none' : 'flex';
+  document.getElementById('metasContent').style.display = has ? 'block' : 'none';
+  if (!has) return;
+
+  const regiaoSel = document.getElementById('metasRegiaoFilter');
+  fillSelect(regiaoSel, [...new Set(DATA.metas.map(r => r.regiao))].filter(Boolean).sort(), 'Todas as regiões');
+  regiaoSel.onchange = renderMetas;
+
+  let rows = DATA.metas;
+  if (regiaoSel.value) rows = rows.filter(r => r.regiao === regiaoSel.value);
+
+  document.getElementById('metasKpis').innerHTML = [
+    kpiHtml('Meta 2025 (total)', fmtBRL(rows.reduce((s, r) => s + r.meta2025, 0))),
+    kpiHtml('Meta 2026 (total)', fmtBRL(rows.reduce((s, r) => s + r.meta2026, 0))),
+    kpiHtml('Clientes', fmtNum(rows.length)),
+  ].join('');
+
+  const byFab = new Map();
+  rows.forEach(r => {
+    const cur = byFab.get(r.fabricante) || { m25: 0, m26: 0 };
+    cur.m25 += r.meta2025; cur.m26 += r.meta2026;
+    byFab.set(r.fabricante, cur);
+  });
+  const top = Array.from(byFab.entries()).sort((a, b) => b[1].m26 - a[1].m26).slice(0, 10);
+  destroyChart('chartMetas');
+  charts.chartMetas = new Chart(document.getElementById('chartMetas'), {
+    type: 'bar',
+    data: {
+      labels: top.map(x => x[0]),
+      datasets: [
+        { label: 'Meta 2025', data: top.map(x => x[1].m25), backgroundColor: css('--series-1'), borderRadius: 4 },
+        { label: 'Meta 2026', data: top.map(x => x[1].m26), backgroundColor: css('--series-2'), borderRadius: 4 },
+      ]
+    },
+    options: baseBarOptions(v => fmtBRL(v), false)
+  });
+
+  const tbody = document.getElementById('metasTable');
+  tbody.innerHTML = rows.map(r => `<tr><td>${r.cliente}</td><td>${r.fabricante}</td><td>${r.especialidade}</td><td>${r.regiao}</td><td>${fmtBRL(r.meta2025)}</td><td>${fmtBRL(r.meta2026)}</td></tr>`).join('');
+}
+
+function renderPromocoes() {
+  const has = DATA.promocoes.length > 0;
+  document.getElementById('promocoesEmpty').style.display = has ? 'none' : 'flex';
+  document.getElementById('promocoesContent').style.display = has ? 'block' : 'none';
+  if (!has) return;
+
+  const fabSel = document.getElementById('promocoesFabricanteFilter');
+  const fabs = [...new Set(DATA.promocoes.map(r => r.fabricante))];
+  const currentVal = fabSel.value;
+  fabSel.innerHTML = fabs.map(f => `<option value="${f}">${f}</option>`).join('');
+  if (fabs.includes(currentVal)) fabSel.value = currentVal;
+  fabSel.onchange = renderPromocoes;
+
+  const chosen = fabSel.value || fabs[0];
+  document.getElementById('promocoesTitulo').textContent = `Regras de desconto — ${chosen}`;
+  const rows = DATA.promocoes.filter(r => r.fabricante === chosen);
+  const tbody = document.getElementById('promocoesTable');
+  tbody.innerHTML = rows.map(r => `<tr><td>${r.familia}</td><td>${r.tipo}</td><td>${r.moeda === 'USD' ? fmtUSD(r.valor) : fmtBRL(r.valor)}</td><td>${r.moeda}</td></tr>`).join('');
+}
+
+function renderPedidos() {
+  const has = DATA.pedidos.length > 0;
+  document.getElementById('pedidosEmpty').style.display = has ? 'none' : 'flex';
+  document.getElementById('pedidosContent').style.display = has ? 'block' : 'none';
+  if (!has) return;
+
+  const custoByCodigo = new Map();
+  DATA.estoque.forEach(r => { if (!custoByCodigo.has(r.codigo)) custoByCodigo.set(r.codigo, r.custoUsd); });
+
+  const vendaDireta = DATA.pedidos.filter(r => r.tipoOp.toUpperCase() === 'VENDA DIRETA');
+  const realizadas = vendaDireta.filter(r => r.status === 'JA BAIXADO');
+  const emAberto = vendaDireta.filter(r => r.status !== 'JA BAIXADO');
+  const outras = DATA.pedidos.filter(r => r.tipoOp.toUpperCase() !== 'VENDA DIRETA');
+
+  renderRealizadas(realizadas, custoByCodigo);
+  renderAberto(emAberto);
+  renderOutras(outras);
+}
+
+function renderRealizadas(rows, custoByCodigo) {
+  document.getElementById('realizadasLocked').style.display = unlocked ? 'none' : 'flex';
+  document.getElementById('realizadasContent').style.display = unlocked ? 'block' : 'none';
+  if (!unlocked) return;
+
+  const enriched = rows.map(r => {
+    const custoUnitUsd = custoByCodigo.has(r.codigo) ? custoByCodigo.get(r.codigo) : null;
+    const custoTotalBrl = custoUnitUsd !== null ? custoUnitUsd * r.qtd * cambio : null;
+    const margemBrl = custoTotalBrl !== null ? r.valorBrl - custoTotalBrl : null;
+    const margemPct = (margemBrl !== null && r.valorBrl) ? (margemBrl / r.valorBrl) * 100 : null;
+    return { ...r, custoTotalBrl, margemBrl, margemPct };
+  });
+
+  const totalVenda = enriched.reduce((s, r) => s + r.valorBrl, 0);
+  const totalCusto = enriched.reduce((s, r) => s + (r.custoTotalBrl || 0), 0);
+  const totalMargem = totalVenda - totalCusto;
+  document.getElementById('realizadasKpis').innerHTML = [
+    kpiHtml('Faturamento (BRL)', fmtBRL(totalVenda)),
+    kpiHtml('Custo estimado (BRL)', fmtBRL(totalCusto)),
+    kpiHtml('Margem estimada (BRL)', fmtBRL(totalMargem)),
+    kpiHtml('Margem %', totalVenda ? (totalMargem / totalVenda * 100).toFixed(1) + '%' : '—'),
+  ].join('');
+
+  const byFab = new Map();
+  enriched.forEach(r => {
+    const cur = byFab.get(r.fabricante) || { venda: 0, custo: 0 };
+    cur.venda += r.valorBrl; cur.custo += (r.custoTotalBrl || 0);
+    byFab.set(r.fabricante, cur);
+  });
+  const top = Array.from(byFab.entries()).sort((a, b) => b[1].venda - a[1].venda).slice(0, 15);
+  destroyChart('chartRealizadas');
+  charts.chartRealizadas = new Chart(document.getElementById('chartRealizadas'), {
+    type: 'bar',
+    data: {
+      labels: top.map(x => x[0]),
+      datasets: [
+        { label: 'Venda', data: top.map(x => x[1].venda), backgroundColor: css('--series-1'), borderRadius: 4 },
+        { label: 'Custo', data: top.map(x => x[1].custo), backgroundColor: css('--series-2'), borderRadius: 4 },
+      ]
+    },
+    options: baseBarOptions(v => fmtBRL(v), false)
+  });
+
+  const tbody = document.getElementById('realizadasTable');
+  const sample = enriched.slice().sort((a, b) => b.valorBrl - a.valorBrl).slice(0, 500);
+  tbody.innerHTML = sample.map(r => `<tr><td>${r.pv}</td><td>${fmtDate(r.faturamento)}</td><td>${r.cliente}</td><td>${r.uf}</td><td>${r.fabricante}</td><td>${r.codigo}</td><td>${fmtNum(r.qtd)}</td><td>${fmtBRL(r.valorBrl)}</td><td>${r.custoTotalBrl !== null ? fmtBRL(r.custoTotalBrl) : '—'}</td><td>${r.margemBrl !== null ? fmtBRL(r.margemBrl) : '—'}</td><td>${r.margemPct !== null ? r.margemPct.toFixed(1) + '%' : '—'}</td></tr>`).join('');
+}
+
+function renderAberto(rows) {
+  document.getElementById('abertoKpis').innerHTML = [
+    kpiHtml('Pedidos em aberto (linhas)', fmtNum(rows.length)),
+    kpiHtml('Valor em aberto (BRL)', fmtBRL(rows.reduce((s, r) => s + r.valorBrl, 0))),
+  ].join('');
+
+  const byStatus = new Map();
+  rows.forEach(r => byStatus.set(r.status, (byStatus.get(r.status) || 0) + 1));
+  const statusColor = (s) => s === 'OK' ? css('--good') : (s === 'INSUFIC' ? css('--warning') : css('--series-1'));
+  const entries = Array.from(byStatus.entries());
+  destroyChart('chartAberto');
+  charts.chartAberto = new Chart(document.getElementById('chartAberto'), {
+    type: 'bar',
+    data: { labels: entries.map(x => x[0]), datasets: [{ data: entries.map(x => x[1]), backgroundColor: entries.map(x => statusColor(x[0])), borderRadius: 4 }] },
+    options: baseBarOptions(v => fmtNum(v))
+  });
+
+  const tbody = document.getElementById('abertoTable');
+  const sample = rows.slice().sort((a, b) => b.valorBrl - a.valorBrl).slice(0, 500);
+  tbody.innerHTML = sample.map(r => `<tr><td>${r.pv}</td><td>${fmtDate(r.confirmacao)}</td><td>${r.status}</td><td>${r.cliente}</td><td>${r.uf}</td><td>${r.fabricante}</td><td>${r.codigo}</td><td>${fmtNum(r.qtd)}</td><td>${fmtBRL(r.valorBrl)}</td></tr>`).join('');
+}
+
+function renderOutras(rows) {
+  const byTipo = new Map();
+  rows.forEach(r => byTipo.set(r.tipoOp || 'N/D', (byTipo.get(r.tipoOp || 'N/D') || 0) + r.valorBrl));
+  const sorted = topN(byTipo, 12);
+  destroyChart('chartOutras');
+  charts.chartOutras = new Chart(document.getElementById('chartOutras'), {
+    type: 'bar',
+    data: { labels: sorted.map(x => x[0]), datasets: [{ data: sorted.map(x => x[1]), backgroundColor: css('--series-1'), borderRadius: 4 }] },
+    options: { ...baseBarOptions(v => fmtBRL(v), false, true), indexAxis: 'y' }
+  });
+
+  const tipoSel = document.getElementById('outrasTipoFilter');
+  fillSelect(tipoSel, [...new Set(rows.map(r => r.tipoOp))].filter(Boolean).sort(), 'Todos os tipos');
+  tipoSel.onchange = () => renderOutrasTable(rows, tipoSel.value);
+  renderOutrasTable(rows, tipoSel.value);
+}
+
+function renderOutrasTable(rows, tipoFilter) {
+  let filtered = rows;
+  if (tipoFilter) filtered = filtered.filter(r => r.tipoOp === tipoFilter);
+  const tbody = document.getElementById('outrasTable');
+  const sample = filtered.slice().sort((a, b) => b.valorBrl - a.valorBrl).slice(0, 500);
+  tbody.innerHTML = sample.map(r => `<tr><td>${r.pv}</td><td>${fmtDate(r.confirmacao)}</td><td>${r.status}</td><td>${r.tipoOp}</td><td>${r.cliente}</td><td>${r.uf}</td><td>${r.fabricante}</td><td>${r.codigo}</td><td>${fmtNum(r.qtd)}</td><td>${fmtBRL(r.valorBrl)}</td></tr>`).join('');
+}
+
+function baseBarOptions(fmt, showLegend, horizontal) {
+  const valueAxis = horizontal ? 'x' : 'y';
+  const categoryAxis = horizontal ? 'y' : 'x';
+  const scales = {};
+  scales[valueAxis] = { grid: { color: css('--grid') }, ticks: { color: css('--text-muted'), callback: (v) => fmt(v) } };
+  scales[categoryAxis] = { grid: { color: css('--grid') }, ticks: { color: css('--text-muted') } };
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: !!showLegend, labels: { color: css('--text-secondary') } },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label ? ctx.dataset.label + ': ' : ''}${fmt(horizontal ? ctx.parsed.x : ctx.parsed.y)}` } },
+    },
+    scales,
+  };
+}
+
+/* init */
+refreshImportStatus();
+renderAll();
+</script>
+</body>
+</html>
