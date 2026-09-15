@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implamed — Painel Principal</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #ffffff;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --border: rgba(11,11,11,0.10);
+    --blue: #2a78d6;
+    --orange: #eb6834;
+    --aqua: #1baf7a;
+    --yellow: #eda100;
+    --magenta: #e87ba4;
+    --violet: #4a3aa7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+  }
+  header.top {
+    padding: 40px 24px 28px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  header.top .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--blue);
+    background: rgba(42,120,214,0.10);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  header.top h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+  }
+  header.top p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 15px;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px 48px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .card:hover {
+    box-shadow: 0 8px 24px rgba(11,11,11,0.08);
+    transform: translateY(-1px);
+  }
+  .card .icon-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card .icon {
+    font-size: 26px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card h2 {
+    margin: 0;
+    font-size: 17px;
+  }
+  .card p.desc {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    line-height: 1.5;
+    flex-grow: 1;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+  .tag.import { background: rgba(27,175,122,0.12); color: #0d8c5e; }
+  .tag.fixo { background: rgba(237,161,0,0.14); color: #a06c00; }
+  .tag.lock { background: rgba(11,11,11,0.06); color: var(--text-secondary); }
+  .card .open {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+  footer {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 8px 24px 40px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="badge">Grupo Implamed</div>
+  <h1>Painel Principal</h1>
+  <p>Escolha um painel abaixo. Cada um abre em sua própria página — os dados de cada planilha importada ficam só no seu navegador, nesta sessão, e nunca são enviados a nenhum servidor.</p>
+</header>
+
+<main>
+  <div class="grid">
+
+    <a class="card" href="vendas.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(42,120,214,0.12);">📊</div>
+      </div>
+      <h2>Vendas</h2>
+      <p class="desc">Faturamento por fabricante, distribuidor, estado e mês. Comparativos ano a ano e por trimestre.</p>
+      <div class="tags"><span class="tag import">Atualizável (.xlsx)</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+    <a class="card" href="estoque.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(27,175,122,0.12);">📦</div>
+      </div>
+      <h2>Estoque</h2>
+      <p class="desc">Posição de estoque, curva ABCD, giro por família/fabricante e expectativa de consumo. Mostra custos.</p>
+      <div class="tags"><span class="tag import">Atualizável (.xlsx)</span><span class="tag lock">🔒 Custos</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+    <a class="card" href="pedidos-margem.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(235,104,52,0.12);">🧾</div>
+      </div>
+      <h2>Pedidos e Margem</h2>
+      <p class="desc">Pedidos em aberto, vendas realizadas cruzadas com custo do estoque para calcular margem, e outras operações.</p>
+      <div class="tags"><span class="tag import">Atualizável (CSV + Estoque)</span><span class="tag lock">🔒 Custos</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+    <a class="card" href="promocoes.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(232,123,164,0.14);">🏷️</div>
+      </div>
+      <h2>Promoções</h2>
+      <p class="desc">Catálogo de promoções vigentes por fabricante, com fotos, condições e itens inclusos.</p>
+      <div class="tags"><span class="tag fixo">Instantâneo</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+    <a class="card" href="distribuidor.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(74,58,167,0.12);">🚚</div>
+      </div>
+      <h2>Vendas por Distribuidor</h2>
+      <p class="desc">Painel dedicado ao desempenho de vendas por distribuidor.</p>
+      <div class="tags"><span class="tag fixo">Instantâneo</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+    <a class="card" href="mercado.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(237,161,0,0.14);">🏥</div>
+      </div>
+      <h2>Estados / Mercado / Concorrência / Hospitais</h2>
+      <p class="desc">Visão por estado: vidas cobertas, hospitais, histórico Implamed, mercado de saúde, concorrência e hospitais privados.</p>
+      <div class="tags"><span class="tag fixo">Instantâneo</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+    <a class="card" href="catalogo.html">
+      <div class="icon-row">
+        <div class="icon" style="background:rgba(11,11,11,0.06);">📄</div>
+      </div>
+      <h2>Catálogo de PDFs</h2>
+      <p class="desc">Central de catálogos técnicos por fabricante e linha de produto, para consulta da equipe de vendas.</p>
+      <div class="tags"><span class="tag fixo">Instantâneo</span></div>
+      <div class="open">Abrir painel →</div>
+    </a>
+
+  </div>
+</main>
+
+<footer>
+  Implamed · painéis locais, sem servidor · nada é enviado para a internet além do próprio carregamento da página.<br>
+  Painéis marcados <strong>"Atualizável"</strong> permitem importar uma planilha nova a qualquer momento para trazer os dados em dia — a importação vale só para aquela sessão do navegador.<br>
+  Painéis marcados <strong>"Instantâneo"</strong> já vêm com os dados prontos dentro do arquivo; para atualizá-los é preciso pedir uma nova versão.<br>
+  Painéis com <strong>🔒 Custos</strong> pedem uma senha simples para mostrar valores de custo/margem — não é uma segurança real, apenas uma barreira contra acesso acidental.
+</footer>
+
+</body>
+</html>
